@@ -19,7 +19,7 @@ sleep 3
 sudo apt update && sudo apt -y dist-upgrade && sudo apt -y autoremove
 
 # Install required packages
-sudo apt-get -y install git python3 python3-venv python3-pip nginx whiptail tor libnginx-mod-http-geoip geoip-database unattended-upgrades gunicorn libssl-dev
+sudo apt-get -y install git python3 python3-venv python3-pip nginx whiptail tor libnginx-mod-http-geoip geoip-database unattended-upgrades gunicorn libssl-dev gnupg
 
 # Function to display error message and exit
 error_exit() {
@@ -40,12 +40,20 @@ NOTIFY_SMTP_SERVER=$(whiptail --inputbox "Enter the SMTP server address (e.g., s
 NOTIFY_PASSWORD=$(whiptail --passwordbox "Enter the password for the email address:" 8 60 3>&1 1>&2 2>&3)
 NOTIFY_SMTP_PORT=$(whiptail --inputbox "Enter the SMTP server port (e.g., 465):" 8 60 3>&1 1>&2 2>&3)
 PGP_KEY_ADDRESS=$(whiptail --inputbox "What's the address for your PGP key?" 8 60 --title "PGP Key Address" 3>&1 1>&2 2>&3)
+GNUPG_PASSPHRASE=$(whiptail --passwordbox "Enter your GNUPG pasword:" 8 60 3>&1 1>&2 2>&3)
+
+# Create tmpfs for storing the passphrase
+mkdir -p /tmp/gnupg
+sudo mount -t tmpfs -o size=1m tmpfs /tmp/gnupg
+echo "$GNUPG_PASSPHRASE" > /tmp/gnupg/.gnupg-passphrase
+chmod 600 /tmp/gnupg/.gnupg-passphrase
 
 export DOMAIN
 export EMAIL
 export NOTIFY_PASSWORD
 export NOTIFY_SMTP_SERVER
 export NOTIFY_SMTP_PORT
+export GNUPG_PASSPHRASE
 
 # Clone the repository
 git clone https://github.com/scidsg/hush-line.git
@@ -58,10 +66,24 @@ pip3 install flask
 pip3 install pgpy
 pip3 install gunicorn
 pip3 install cryptography
+pip3 install python-gnupg
 pip3 install -r requirements.txt
 
 # Download the public PGP key and rename to public_key.asc
 wget $PGP_KEY_ADDRESS -O $PWD/public_key.asc
+
+# Generate Keypair
+gpg --gen-key
+echo "$GNUPG_PASSPHRASE" | gpg --encrypt --armor --recipient $EMAIL > password.gpg
+
+# Create environment variables
+cat > /etc/hush-line/environment << EOL
+NOTIFY_PASSWORD=$NOTIFY_PASSWORD
+EMAIL=$EMAIL
+DOMAIN=localhost
+NOTIFY_SMTP_SERVER=$NOTIFY_SMTP_SERVER
+NOTIFY_SMTP_PORT=$NOTIFY_SMTP_PORT
+EOL
 
 # Create a systemd service
 cat > /etc/systemd/system/hush-line.service << EOL
@@ -71,11 +93,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=$PWD
-Environment="DOMAIN=localhost"
-Environment="EMAIL=$EMAIL"
-Environment="NOTIFY_PASSWORD=$NOTIFY_PASSWORD"
-Environment="NOTIFY_SMTP_SERVER=$NOTIFY_SMTP_SERVER"
-Environment="NOTIFY_SMTP_PORT=$NOTIFY_SMTP_PORT"
+EnvironmentFile=/etc/hush-line/environment
 ExecStart=$PWD/venv/bin/gunicorn --bind 127.0.0.1:5000 app:app
 Restart=always
 [Install]
