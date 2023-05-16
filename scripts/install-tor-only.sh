@@ -19,7 +19,7 @@ sleep 3
 sudo apt update && sudo apt -y dist-upgrade && sudo apt -y autoremove
 
 # Install required packages
-sudo apt-get -y install git python3 python3-venv python3-pip nginx whiptail tor libnginx-mod-http-geoip geoip-database unattended-upgrades gunicorn libssl-dev gnupg
+sudo apt-get -y install git python3 python3-venv python3-pip nginx whiptail tor libnginx-mod-http-geoip geoip-database unattended-upgrades gunicorn libssl-dev
 
 # Function to display error message and exit
 error_exit() {
@@ -58,24 +58,10 @@ pip3 install flask
 pip3 install pgpy
 pip3 install gunicorn
 pip3 install cryptography
-pip3 install python-gnupg
 pip3 install -r requirements.txt
 
 # Download the public PGP key and rename to public_key.asc
 wget $PGP_KEY_ADDRESS -O $PWD/public_key.asc
-
-# Generate Keypair
-gpg --gen-key
-echo "$GNUPG_PASSPHRASE" | gpg --encrypt --armor --recipient $EMAIL > password.gpg
-
-# Create environment variables
-cat > /etc/hush-line/environment << EOL
-NOTIFY_PASSWORD=$NOTIFY_PASSWORD
-EMAIL=$EMAIL
-DOMAIN=localhost
-NOTIFY_SMTP_SERVER=$NOTIFY_SMTP_SERVER
-NOTIFY_SMTP_PORT=$NOTIFY_SMTP_PORT
-EOL
 
 # Create a systemd service
 cat > /etc/systemd/system/hush-line.service << EOL
@@ -85,7 +71,11 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=$PWD
-EnvironmentFile=/etc/hush-line/environment
+Environment="DOMAIN=localhost"
+Environment="EMAIL=$EMAIL"
+Environment="NOTIFY_PASSWORD=$NOTIFY_PASSWORD"
+Environment="NOTIFY_SMTP_SERVER=$NOTIFY_SMTP_SERVER"
+Environment="NOTIFY_SMTP_PORT=$NOTIFY_SMTP_PORT"
 ExecStart=$PWD/venv/bin/gunicorn --bind 127.0.0.1:5000 app:app
 Restart=always
 [Install]
