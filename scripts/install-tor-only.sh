@@ -40,20 +40,12 @@ NOTIFY_SMTP_SERVER=$(whiptail --inputbox "Enter the SMTP server address (e.g., s
 NOTIFY_PASSWORD=$(whiptail --passwordbox "Enter the password for the email address:" 8 60 3>&1 1>&2 2>&3)
 NOTIFY_SMTP_PORT=$(whiptail --inputbox "Enter the SMTP server port (e.g., 465):" 8 60 3>&1 1>&2 2>&3)
 PGP_KEY_ADDRESS=$(whiptail --inputbox "What's the address for your PGP key?" 8 60 --title "PGP Key Address" 3>&1 1>&2 2>&3)
-GNUPG_PASSPHRASE=$(whiptail --passwordbox "Enter your GNUPG pasword:" 8 60 3>&1 1>&2 2>&3)
-
-# Create tmpfs for storing the passphrase
-mkdir -p /tmp/gnupg
-sudo mount -t tmpfs -o size=1m tmpfs /tmp/gnupg
-echo "$GNUPG_PASSPHRASE" > /tmp/gnupg/.gnupg-passphrase
-chmod 600 /tmp/gnupg/.gnupg-passphrase
 
 export DOMAIN
 export EMAIL
 export NOTIFY_PASSWORD
 export NOTIFY_SMTP_SERVER
 export NOTIFY_SMTP_PORT
-export GNUPG_PASSPHRASE
 
 # Clone the repository
 git clone https://github.com/scidsg/hush-line.git
